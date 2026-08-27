@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reflex - Retailer Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📦 Reflex Delivery</h1>
+            <p class="subtitle">Retailer Dashboard</p>
+        </header>
+
+        <!-- Create Delivery Form -->
+        <section class="card">
+            <h2>Submit New Delivery</h2>
+            <form id="deliveryForm">
+                <div class="form-group">
+                    <label for="customer_name">Customer Name *</label>
+                    <input type="text" id="customer_name" name="customer_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="customer_phone">Customer Phone *</label>
+                    <input type="tel" id="customer_phone" name="customer_phone" placeholder="0712345678" required>
+                </div>
+                <div class="form-group">
+                    <label for="delivery_address">Delivery Address *</label>
+                    <input type="text" id="delivery_address" name="delivery_address" placeholder="Westlands, Nairobi" required>
+                </div>
+                <div class="form-group">
+                    <label for="item_description">Item Description *</label>
+                    <input type="text" id="item_description" name="item_description" placeholder="Samsung TV 43 inch" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Submit Delivery</button>
+            </form>
+            <div id="formMessage" class="message"></div>
+        </section>
+
+        <!-- Deliveries List -->
+        <section class="card">
+            <h2>Your Deliveries</h2>
+            <div id="deliveriesList">
+                {% if deliveries %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Customer</th>
+                                <th>Item</th>
+                                <th>Status</th>
+                                <th>Rider</th>
+                                <th>Updated</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for delivery in deliveries %}
+                            <tr class="status-{{ delivery.status.lower() }}">
+                                <td><strong>{{ delivery.delivery_id }}</strong></td>
+                                <td>{{ delivery.customer_name }}</td>
+                                <td>{{ delivery.item_description }}</td>
+                                <td><span class="badge badge-{{ delivery.status.lower() }}">{{ delivery.status }}</span></td>
+                                <td>{{ delivery.assigned_rider or 'Not assigned' }}</td>
+                                <td>{{ delivery.updated_at }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p class="empty-state">No deliveries yet. Submit your first delivery above! 🚀</p>
+                {% endif %}
+            </div>
+        </section>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+    // Handle form submission
+    document.getElementById('deliveryForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Disable submit button to prevent double submission
+        const submitBtn = this.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+        
+        const formData = new FormData(this);
+        const data = Object.fromEntries(formData);
+        
+        const messageDiv = document.getElementById('formMessage');
+        messageDiv.className = 'message';
+        
+        try {
+            const response = await fetch('/delivery', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                messageDiv.className = 'message success';
+                messageDiv.textContent = `✅ Delivery ${result.delivery.delivery_id} created successfully!`;
+                this.reset();
+                
+                // Clear form values immediately
+                this.querySelectorAll('input, textarea').forEach(input => {
+                    input.value = '';
+                });
+                
+                // Re-enable submit button
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Delivery';
+                
+                // Refresh after 2 seconds to show the new delivery
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            } else {
+                messageDiv.className = 'message error';
+                messageDiv.textContent = `❌ Error: ${result.error}`;
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Delivery';
+            }
+        } catch (error) {
+            messageDiv.className = 'message error';
+            messageDiv.textContent = `❌ Network error: ${error.message}`;
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Delivery';
+        }
+    });
+</script>

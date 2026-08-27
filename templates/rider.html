@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reflex - Rider Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📦 Reflex Delivery</h1>
+            <p class="subtitle">Rider Dashboard</p>
+            {% if rider_name %}
+                <p class="welcome">👋 Welcome, <strong>{{ rider_name }}</strong></p>
+            {% endif %}
+        </header>
+
+        <!-- My Deliveries -->
+        <section class="card">
+            <h2>My Deliveries</h2>
+            <div id="deliveriesList">
+                {% if deliveries %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Customer</th>
+                                <th>Item</th>
+                                <th>Address</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for delivery in deliveries %}
+                            <tr class="status-{{ delivery.status.lower() }}">
+                                <td><strong>{{ delivery.delivery_id }}</strong></td>
+                                <td>{{ delivery.customer_name }}<br><small>{{ delivery.customer_phone }}</small></td>
+                                <td>{{ delivery.item_description }}</td>
+                                <td>{{ delivery.delivery_address }}</td>
+                                <td><span class="badge badge-{{ delivery.status.lower() }}">{{ delivery.status }}</span></td>
+                                <td>
+                                    {% if delivery.status == 'ASSIGNED' %}
+                                        <button class="btn btn-primary update-status" data-id="{{ delivery.delivery_id }}" data-status="PICKED_UP">📦 Pick Up</button>
+                                    {% elif delivery.status == 'PICKED_UP' %}
+                                        <button class="btn btn-success update-status" data-id="{{ delivery.delivery_id }}" data-status="DELIVERED">✅ Deliver</button>
+                                    {% elif delivery.status == 'DELIVERED' %}
+                                        <button class="btn btn-success update-status" data-id="{{ delivery.delivery_id }}" data-status="CONFIRMED">🔒 Confirm</button>
+                                    {% else %}
+                                        <span class="badge badge-{{ delivery.status.lower() }}">{{ delivery.status }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p class="empty-state">📭 No deliveries assigned to you yet.</p>
+                {% endif %}
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Handle status updates
+        document.querySelectorAll('.update-status').forEach(button => {
+            button.addEventListener('click', async function() {
+                const deliveryId = this.dataset.id;
+                const newStatus = this.dataset.status;
+                
+                const confirmMessage = `Update delivery ${deliveryId} to ${newStatus}?`;
+                if (!confirm(confirmMessage)) return;
+                
+                try {
+                    const response = await fetch('/status', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            delivery_id: deliveryId,
+                            status: newStatus
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        alert(`✅ Delivery ${deliveryId} updated to ${newStatus}!`);
+                        // Refresh the page
+                        location.reload();
+                    } else {
+                        alert(`❌ Error: ${result.error}`);
+                    }
+                } catch (error) {
+                    alert(`❌ Network error: ${error.message}`);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

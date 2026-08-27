@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reflex - Dispatcher Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📦 Reflex Delivery</h1>
+            <p class="subtitle">Dispatcher Dashboard</p>
+        </header>
+
+        <!-- Pending Deliveries -->
+        <section class="card">
+            <h2>Pending Deliveries</h2>
+            <div id="pendingList">
+                {% if pending %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Customer</th>
+                                <th>Item</th>
+                                <th>Address</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for delivery in pending %}
+                            <tr>
+                                <td><strong>{{ delivery.delivery_id }}</strong></td>
+                                <td>{{ delivery.customer_name }}<br><small>{{ delivery.customer_phone }}</small></td>
+                                <td>{{ delivery.item_description }}</td>
+                                <td>{{ delivery.delivery_address }}</td>
+                                <td>
+                                    <form class="assign-form" data-delivery-id="{{ delivery.delivery_id }}">
+                                        <select name="rider_name" required>
+                                            <option value="">Select Rider</option>
+                                            {% for rider in riders %}
+                                                <option value="{{ rider.name }}">{{ rider.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <button type="submit" class="btn btn-success">Assign</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p class="empty-state">🎉 No pending deliveries! All caught up.</p>
+                {% endif %}
+            </div>
+        </section>
+
+        <!-- All Deliveries -->
+        <section class="card">
+            <h2>All Deliveries</h2>
+            <div id="allDeliveries">
+                {% if all_deliveries %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Customer</th>
+                                <th>Status</th>
+                                <th>Rider</th>
+                                <th>Updated</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for delivery in all_deliveries %}
+                            <tr class="status-{{ delivery.status.lower() }}">
+                                <td><strong>{{ delivery.delivery_id }}</strong></td>
+                                <td>{{ delivery.customer_name }}</td>
+                                <td><span class="badge badge-{{ delivery.status.lower() }}">{{ delivery.status }}</span></td>
+                                <td>{{ delivery.assigned_rider or 'Not assigned' }}</td>
+                                <td>{{ delivery.updated_at }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p class="empty-state">No deliveries yet.</p>
+                {% endif %}
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Handle assignment forms
+        document.querySelectorAll('.assign-form').forEach(form => {
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const deliveryId = this.dataset.deliveryId;
+                const riderName = this.querySelector('select[name="rider_name"]').value;
+                
+                if (!riderName) {
+                    alert('Please select a rider');
+                    return;
+                }
+                
+                try {
+                    const response = await fetch('/assign', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            delivery_id: deliveryId,
+                            rider_name: riderName
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        alert(`✅ Delivery ${deliveryId} assigned to ${riderName}!`);
+                        // Refresh the page
+                        location.reload();
+                    } else {
+                        alert(`❌ Error: ${result.error}`);
+                    }
+                } catch (error) {
+                    alert(`❌ Network error: ${error.message}`);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
