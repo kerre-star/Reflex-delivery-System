@@ -2,6 +2,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import time
 import uuid
+import json
 from datetime import datetime
 import logging
 import os
@@ -35,13 +36,23 @@ class SheetsClient:
         """Authenticate with Google Sheets API with retry."""
         scope = ['https://spreadsheets.google.com/feeds',
                 'https://www.googleapis.com/auth/drive']
-        
+
+        creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+
         retries = 0
         while retries < self.max_retries:
             try:
-                creds = ServiceAccountCredentials.from_json_keyfile_name(
-                    credentials_file, scope
-                )
+                if creds_json:
+                    # Production (Render): credentials passed as an env var
+                    creds_dict = json.loads(creds_json)
+                    creds = ServiceAccountCredentials.from_json_keyfile_dict(
+                        creds_dict, scope
+                    )
+                else:
+                    # Local dev: credentials read from a file on disk
+                    creds = ServiceAccountCredentials.from_json_keyfile_name(
+                        credentials_file, scope
+                    )
                 self.client = gspread.authorize(creds)
                 logger.info("✅ Successfully authenticated with Google Sheets")
                 return
