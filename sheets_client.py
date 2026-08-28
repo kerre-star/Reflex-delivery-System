@@ -3,13 +3,23 @@ from oauth2client.service_account import ServiceAccountCredentials
 import time
 import uuid
 import json
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import logging
 import os
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Nairobi is UTC+3 year-round (no daylight saving), so this is safe to hardcode
+NAIROBI_TZ = timezone(timedelta(hours=3))
+
+
+def nairobi_now():
+    """Return the current time in Nairobi (EAT), regardless of the server's
+    own timezone. Render runs in UTC by default, so datetime.now() alone
+    would silently drift depending on where the code is deployed."""
+    return datetime.now(NAIROBI_TZ)
 
 class SheetsClient:
     def __init__(self, credentials_file, sheet_id):
@@ -150,8 +160,8 @@ class SheetsClient:
         Returns:
             dict: The created delivery data
         """
-        delivery_id = f"DEL-{datetime.now().strftime('%y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        delivery_id = f"DEL-{nairobi_now().strftime('%y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
+        now = nairobi_now().strftime("%Y-%m-%d %H:%M:%S")
         
         row = [
             delivery_id,
@@ -231,7 +241,7 @@ class SheetsClient:
                             if cell:
                                 self.deliveries_sheet.update_cell(cell.row, 6, "ASSIGNED")  # Column F is status
                                 # Also update the updated_at timestamp
-                                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                now = nairobi_now().strftime("%Y-%m-%d %H:%M:%S")
                                 self.deliveries_sheet.update_cell(cell.row, 9, now)  # Column I is updated_at
                                 logger.info(f"🔧 Auto-corrected {record.get('delivery_id')} from PENDING to ASSIGNED")
                         except Exception as e:
@@ -327,7 +337,7 @@ class SheetsClient:
                     )
                 
                 # Update status
-                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                now = nairobi_now().strftime("%Y-%m-%d %H:%M:%S")
                 updates = [
                     (row, status_col, new_status),
                     (row, updated_at_col, now)
