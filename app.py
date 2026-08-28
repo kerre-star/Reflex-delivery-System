@@ -1,9 +1,11 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from sheets_client import SheetsClient
 from webhook_handler import WebhookHandler
 import os
 from dotenv import load_dotenv
 import logging
+from functools import wraps
+from datetime import timedelta
 
 # Load environment variables
 load_dotenv()
@@ -14,6 +16,27 @@ logger = logging.getLogger(__name__)
 
 # Initialize Flask app
 app = Flask(__name__)
+
+# Secret key for session cookies. In production, set SECRET_KEY as an env var.
+app.secret_key = os.getenv("SECRET_KEY", "dev-only-insecure-key-change-me")
+
+# How long a "Remember me" login lasts before requiring a fresh login.
+app.permanent_session_lifetime = timedelta(days=7)
+
+VALID_ROLES = {"retailer", "dispatcher", "rider"}
+
+
+def login_required(role):
+    """Require the visitor to have selected/logged in as the given role
+    for this browser session before viewing the page."""
+    def decorator(f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            if session.get("role") != role:
+                return redirect(url_for("login", role=role))
+            return f(*args, **kwargs)
+        return wrapped
+    return decorator
 
 # Initialize Sheets Client
 CREDENTIALS_FILE = os.getenv("GOOGLE_CREDENTIALS_FILE", "service-account-key.json")
@@ -32,11 +55,68 @@ subscribers = {}
 
 @app.route('/')
 def index():
-    """Redirect to retailer page."""
-    return redirect(url_for('retailer'))
+    """Home dashboard: pick which role you're logging in as."""
+    return render_template('home.html')
+
+
+@app.route('/login/<role>', methods=['GET', 'POST'])
+def login(role):
+    """Log in as a given role. Riders are validated against the Riders
+    sheet; retailer and dispatcher are validated against the Staff sheet."""
+    if role not in VALID_ROLES:
+        return redirect(url_for('index'))
+
+    if request.method == 'GET':
+        return render_template('login.html', role=role)
+
+    user_id = request.form.get('user_id', '').strip()
+    remember_me = request.form.get('remember_me') == 'on'
+
+    if not user_id:
+        return render_template('login.html', role=role, error="Please enter an ID.")
+
+    if role == 'rider':
+        try:
+            person = sheets_client.get_rider_by_id(user_id)
+        except Exception as e:
+            logger.error(f"Error validating rider login: {e}")
+            return render_template('login.html', role=role, error="Couldn't verify that ID right now. Try again.")
+
+        if not person:
+            return render_template('login.html', role=role, error=f"Rider ID '{user_id}' not found or inactive.")
+
+        identifier = person['rider_id']
+        display_name = person['name']
+
+    else:  # retailer or dispatcher
+        try:
+            person = sheets_client.get_staff_by_id(user_id, role)
+        except Exception as e:
+            logger.error(f"Error validating staff login: {e}")
+            return render_template('login.html', role=role, error="Couldn't verify that ID right now. Try again.")
+
+        if not person:
+            return render_template('login.html', role=role, error=f"Staff ID '{user_id}' not found for this role, or inactive.")
+
+        identifier = person['staff_id']
+        display_name = person['name']
+
+    session.permanent = remember_me
+    session['role'] = role
+    session['user_id'] = identifier
+    session['user_name'] = display_name
+    return redirect(url_for(role))
+
+
+@app.route('/logout')
+def logout():
+    """Clear the session and return to the home dashboard."""
+    session.clear()
+    return redirect(url_for('index'))
 
 
 @app.route('/retailer')
+@login_required('retailer')
 def retailer():
     """Load retailer page with their deliveries."""
     try:
@@ -92,6 +172,7 @@ def create_delivery():
 
 
 @app.route('/dispatcher')
+@login_required('dispatcher')
 def dispatcher():
     """Load dispatcher page with pending deliveries."""
     try:
@@ -156,19 +237,12 @@ def assign_delivery():
 
 
 @app.route('/rider')
+@login_required('rider')
 def rider():
     """Load rider page with their deliveries."""
     try:
-        # Get rider name from query parameter (simplified)
-        rider_name = request.args.get('rider', '')
-        
-        if not rider_name:
-            # Show all deliveries (for demo purposes)
-            deliveries = sheets_client.get_deliveries()
-        else:
-            # Get deliveries assigned to this rider
-            deliveries = sheets_client.get_deliveries(rider=rider_name)
-        
+        rider_name = session.get('user_name', '')
+        deliveries = sheets_client.get_deliveries(rider=rider_name)
         return render_template('rider.html', deliveries=deliveries, rider_name=rider_name)
     except Exception as e:
         logger.error(f"Error loading rider page: {e}")

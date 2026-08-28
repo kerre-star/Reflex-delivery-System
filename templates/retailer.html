@@ -11,6 +11,7 @@
         <header>
             <h1>📦 Reflex Delivery</h1>
             <p class="subtitle">Retailer Dashboard</p>
+            <p class="welcome">👋 Logged in as <strong>{{ session.get('user_name', '') }}</strong> &nbsp;·&nbsp; <a href="{{ url_for('logout') }}" style="color:white;">Log out</a></p>
         </header>
 
         <!-- Create Delivery Form -->

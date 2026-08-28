@@ -34,6 +34,7 @@ class SheetsClient:
         self.client = None
         self.deliveries_sheet = None
         self.riders_sheet = None
+        self.staff_sheet = None
         
         # Retry configuration
         self.max_retries = 4
@@ -100,6 +101,15 @@ class SheetsClient:
                         title="Riders", rows=100, cols=10
                     )
                     self._setup_riders_headers()
+
+                # Get or create Staff tab (retailer + dispatcher logins)
+                try:
+                    self.staff_sheet = sheet.worksheet("Staff")
+                except gspread.WorksheetNotFound:
+                    self.staff_sheet = sheet.add_worksheet(
+                        title="Staff", rows=100, cols=10
+                    )
+                    self._setup_staff_headers()
                 
                 logger.info("✅ Successfully initialized worksheets")
                 return
@@ -152,6 +162,24 @@ class SheetsClient:
                     time.sleep(wait_time)
                 else:
                     raise Exception(f"Failed to set up riders headers: {e}")
+
+    def _setup_staff_headers(self):
+        """Set up headers for Staff sheet with retry."""
+        headers = ["staff_id", "name", "role", "phone", "active"]
+        retries = 0
+        while retries < self.max_retries:
+            try:
+                self.staff_sheet.append_row(headers)
+                logger.info("✅ Set up Staff headers")
+                return
+            except Exception as e:
+                retries += 1
+                wait_time = self.base_delay * (2 ** retries)
+                logger.warning(f"⚠️ Staff headers setup failed (attempt {retries}/{self.max_retries}): {e}")
+                if retries < self.max_retries:
+                    time.sleep(wait_time)
+                else:
+                    raise Exception(f"Failed to set up staff headers: {e}")
     
     def create_delivery(self, customer_name, customer_phone, delivery_address, item_description):
         """
@@ -441,6 +469,75 @@ class SheetsClient:
                     time.sleep(wait_time)
                 else:
                     raise Exception(f"Failed to get riders: {e}")
+
+    def get_rider_by_id(self, rider_id):
+        """Look up a single active rider by their rider_id (e.g. 'R001JM').
+        Returns the rider dict if found and active, otherwise None."""
+        rider_id = (rider_id or "").strip().upper()
+        if not rider_id:
+            return None
+
+        retries = 0
+        while retries < self.max_retries:
+            try:
+                records = self.riders_sheet.get_all_records()
+                for record in records:
+                    if str(record.get("rider_id", "")).strip().upper() == rider_id:
+                        if record.get("active", "").upper() == "TRUE":
+                            return {
+                                "rider_id": record.get("rider_id", ""),
+                                "name": record.get("name", ""),
+                                "phone": record.get("phone", ""),
+                                "active": record.get("active", "")
+                            }
+                        return None  # matched but inactive
+                return None  # no match
+
+            except Exception as e:
+                retries += 1
+                wait_time = self.base_delay * (2 ** retries)
+                logger.warning(f"⚠️ Rider lookup failed (attempt {retries}/{self.max_retries}): {e}")
+                if retries < self.max_retries:
+                    time.sleep(wait_time)
+                else:
+                    raise Exception(f"Failed to look up rider: {e}")
+
+    def get_staff_by_id(self, staff_id, role):
+        """Look up a single active staff member by staff_id, scoped to a
+        specific role ('retailer' or 'dispatcher'). Returns the staff dict
+        if found, active, and role matches, otherwise None."""
+        staff_id = (staff_id or "").strip().upper()
+        role = (role or "").strip().lower()
+        if not staff_id:
+            return None
+
+        retries = 0
+        while retries < self.max_retries:
+            try:
+                records = self.staff_sheet.get_all_records()
+                for record in records:
+                    if str(record.get("staff_id", "")).strip().upper() == staff_id:
+                        if str(record.get("role", "")).strip().lower() != role:
+                            return None  # right ID, wrong role
+                        if str(record.get("active", "")).strip().upper() == "TRUE":
+                            return {
+                                "staff_id": record.get("staff_id", ""),
+                                "name": record.get("name", ""),
+                                "role": record.get("role", ""),
+                                "phone": record.get("phone", ""),
+                                "active": record.get("active", "")
+                            }
+                        return None  # matched but inactive
+                return None  # no match
+
+            except Exception as e:
+                retries += 1
+                wait_time = self.base_delay * (2 ** retries)
+                logger.warning(f"⚠️ Staff lookup failed (attempt {retries}/{self.max_retries}): {e}")
+                if retries < self.max_retries:
+                    time.sleep(wait_time)
+                else:
+                    raise Exception(f"Failed to look up staff: {e}")
     
     def seed_test_data(self):
         """Seed test data for the demo."""

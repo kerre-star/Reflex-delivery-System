@@ -12,7 +12,7 @@
             <h1>📦 Reflex Delivery</h1>
             <p class="subtitle">Rider Dashboard</p>
             {% if rider_name %}
-                <p class="welcome">👋 Welcome, <strong>{{ rider_name }}</strong></p>
+                <p class="welcome">👋 Welcome, <strong>{{ rider_name }}</strong> &nbsp;·&nbsp; <a href="{{ url_for('logout') }}" style="color:white;">Log out</a></p>
             {% endif %}
         </header>
 
