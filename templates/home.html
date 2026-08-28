@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reflex - Sign In</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .role-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-top: 10px;
+        }
+        .role-card {
+            display: block;
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 30px 20px;
+            text-align: center;
+            text-decoration: none;
+            color: #2d3748;
+            transition: border-color 0.2s, transform 0.15s;
+        }
+        .role-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+        .role-icon {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        .role-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+        .role-desc {
+            font-size: 0.9rem;
+            color: #718096;
+        }
+        @media (max-width: 700px) {
+            .role-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📦 Reflex Delivery</h1>
+            <p class="subtitle">Who's logging in?</p>
+        </header>
+
+        <section class="card">
+            <h2>Select your role</h2>
+            <div class="role-grid">
+                <a class="role-card" href="{{ url_for('login', role='retailer') }}">
+                    <div class="role-icon">🏬</div>
+                    <div class="role-title">Retailer Staff</div>
+                    <div class="role-desc">Submit and track deliveries</div>
+                </a>
+                <a class="role-card" href="{{ url_for('login', role='dispatcher') }}">
+                    <div class="role-icon">🗂️</div>
+                    <div class="role-title">Dispatcher</div>
+                    <div class="role-desc">Assign riders to requests</div>
+                </a>
+                <a class="role-card" href="{{ url_for('login', role='rider') }}">
+                    <div class="role-icon">🏍️</div>
+                    <div class="role-title">Rider</div>
+                    <div class="role-desc">View jobs and update status</div>
+                </a>
+            </div>
+        </section>
+    </div>
+</body>
+</html>

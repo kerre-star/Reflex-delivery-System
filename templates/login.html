@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reflex - Log In</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .login-card { max-width: 420px; margin: 0 auto; }
+        .back-link { display: inline-block; margin-bottom: 15px; color: #667eea; text-decoration: none; font-weight: 600; }
+        .hint { font-size: 0.85rem; color: #718096; margin-top: 6px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📦 Reflex Delivery</h1>
+            <p class="subtitle">
+                {% if role == 'retailer' %}Retailer Staff Login
+                {% elif role == 'dispatcher' %}Dispatcher Login
+                {% elif role == 'rider' %}Rider Login
+                {% endif %}
+            </p>
+        </header>
+
+        <section class="card login-card">
+            <a class="back-link" href="{{ url_for('index') }}">&larr; Not you? Choose a different role</a>
+            <h2>Enter your ID</h2>
+
+            {% if error %}
+            <div class="message error">{{ error }}</div>
+            {% endif %}
+
+            <form method="POST" action="{{ url_for('login', role=role) }}">
+                <div class="form-group">
+                    {% if role == 'rider' %}
+                        <label for="user_id">Rider ID *</label>
+                        <input type="text" id="user_id" name="user_id" placeholder="e.g. R001JM" required autofocus>
+                        <p class="hint">Your rider ID is on file with your dispatcher — format is your rider number plus your initials.</p>
+                    {% else %}
+                        <label for="user_id">Staff ID *</label>
+                        <input type="text" id="user_id" name="user_id" placeholder="e.g. S001GA" required autofocus>
+                        <p class="hint">Your staff ID is on file with your manager.</p>
+                    {% endif %}
+                </div>
+                <div class="form-group" style="display:flex; align-items:center; gap:8px;">
+                    <input type="checkbox" id="remember_me" name="remember_me" style="width:auto;">
+                    <label for="remember_me" style="margin:0;">Remember me for 7 days</label>
+                </div>
+                <button type="submit" class="btn btn-primary">Continue</button>
+            </form>
+        </section>
+    </div>
+</body>
+</html>
